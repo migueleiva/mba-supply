@@ -13,7 +13,7 @@ st.set_page_config(
 st.title("🧀 OptiLácteos: Motor de Reposición Dinámica Anti-Merma")
 st.markdown(
     "**Iniciativa 1: Abastecimiento Pull basado en demanda real y ventana"
-    " vendible (CEDI Huachipa ➔ Red)**"
+    " vendible (CEDI X ➔ Red)**"
 )
 
 # -------------------------------------------------------------
