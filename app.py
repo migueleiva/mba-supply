@@ -192,6 +192,69 @@ nivel_servicio_z = st.sidebar.selectbox(
     format_func=lambda x: {1.28: "90%", 1.64: "95%", 1.96: "97.5%"}[x],
 )
 
+# -------------------------------------------------------------
+# AJUSTES DE PRONÓSTICO POR EVENTOS EXTERNOS
+# -------------------------------------------------------------
+st.sidebar.markdown("---")
+st.sidebar.subheader("📢 Ajuste por Eventos Externos")
+st.sidebar.caption(
+    "Corrige el pronóstico cuando hay factores que el histórico no captura "
+    "(promociones, influencers, campañas, estacionalidad especial, etc.)"
+)
+
+# Tipo de evento
+tipo_evento = st.sidebar.selectbox(
+    "Tipo de Evento",
+    options=[
+        "Sin ajuste",
+        "🎯 Promoción en tienda",
+        "📱 Campaña de Influencer",
+        "📺 Publicidad masiva (TV/Radio)",
+        "🎉 Evento estacional (Navidad, etc.)",
+        "⚠️ Desabastecimiento competencia",
+        "📉 Factor negativo (huelga, clima, etc.)",
+        "🔧 Ajuste manual personalizado",
+    ],
+)
+
+# Factores de ajuste predefinidos según tipo de evento
+FACTORES_EVENTO = {
+    "Sin ajuste": 1.0,
+    "🎯 Promoción en tienda": 1.3,
+    "📱 Campaña de Influencer": 1.5,
+    "📺 Publicidad masiva (TV/Radio)": 1.4,
+    "🎉 Evento estacional (Navidad, etc.)": 1.6,
+    "⚠️ Desabastecimiento competencia": 1.25,
+    "📉 Factor negativo (huelga, clima, etc.)": 0.7,
+    "🔧 Ajuste manual personalizado": 1.0,
+}
+
+if tipo_evento == "🔧 Ajuste manual personalizado":
+    factor_ajuste = st.sidebar.slider(
+        "Factor de ajuste (%)",
+        min_value=50,
+        max_value=200,
+        value=100,
+        step=5,
+        help="100% = sin cambio, 150% = +50% demanda, 70% = -30% demanda"
+    ) / 100
+else:
+    factor_ajuste = FACTORES_EVENTO[tipo_evento]
+
+# Selector de alcance del ajuste
+alcance_ajuste = st.sidebar.radio(
+    "Aplicar ajuste a:",
+    options=["🌐 Toda la red", "🚚 Rutas específicas", "🏪 Tiendas específicas"],
+    index=0,
+)
+
+# Mostrar el factor actual
+if tipo_evento != "Sin ajuste":
+    st.sidebar.info(
+        f"📊 **Factor aplicado:** {factor_ajuste:.0%}\n\n"
+        f"La demanda pronosticada se multiplicará por **{factor_ajuste}**"
+    )
+
 if uploaded_file is None:
   st.info(
       "👆 Sube el archivo original **Datos_trabajo_final.xlsx** en la barra"
@@ -256,9 +319,43 @@ metadata["Venta_Prom_30D"] = sales_matrix[recent_dates].mean(axis=1).round(2)
 metadata["Venta_Prom_Total"] = sales_matrix.mean(axis=1).round(2)
 metadata["Desv_30D"] = sales_matrix[recent_dates].std(axis=1).round(2)
 
-metadata["Demanda_Diaria"] = (
+# Demanda base (sin ajuste)
+metadata["Demanda_Base"] = (
     0.70 * metadata["Venta_Prom_30D"] + 0.30 * metadata["Venta_Prom_Total"]
 ).round(2)
+
+# Aplicar factor de ajuste según alcance seleccionado
+metadata["Factor_Ajuste"] = 1.0  # Por defecto sin ajuste
+
+if tipo_evento != "Sin ajuste":
+    if alcance_ajuste == "🌐 Toda la red":
+        metadata["Factor_Ajuste"] = factor_ajuste
+    elif alcance_ajuste == "🚚 Rutas específicas":
+        # Selector de rutas aparecerá después de cargar datos
+        rutas_disponibles = sorted(metadata["Ruta"].unique().tolist())
+        rutas_seleccionadas = st.sidebar.multiselect(
+            "Seleccionar rutas a ajustar:",
+            options=rutas_disponibles,
+            default=[],
+        )
+        if rutas_seleccionadas:
+            metadata.loc[metadata["Ruta"].isin(rutas_seleccionadas), "Factor_Ajuste"] = factor_ajuste
+    elif alcance_ajuste == "🏪 Tiendas específicas":
+        # Selector de tiendas
+        tiendas_opciones = metadata.apply(
+            lambda x: f"{int(x['Codigo Tienda'])} - {x['Tienda']}", axis=1
+        ).tolist()
+        tiendas_seleccionadas = st.sidebar.multiselect(
+            "Seleccionar tiendas a ajustar:",
+            options=tiendas_opciones,
+            default=[],
+        )
+        if tiendas_seleccionadas:
+            codigos_sel = [int(t.split(" - ")[0]) for t in tiendas_seleccionadas]
+            metadata.loc[metadata["Codigo Tienda"].isin(codigos_sel), "Factor_Ajuste"] = factor_ajuste
+
+# Demanda ajustada
+metadata["Demanda_Diaria"] = (metadata["Demanda_Base"] * metadata["Factor_Ajuste"]).round(2)
 
 sigma_lt = np.where(
     metadata["Desv_30D"] > 0,
@@ -386,6 +483,8 @@ with tab1:
       "Tienda",
       "Ruta",
       "Venta_Prom_30D",
+      "Demanda_Diaria",
+      "Factor_Ajuste",
       "Stock_Gondola",
       "ROP",
       "Capacidad_Max_20D",
@@ -403,7 +502,13 @@ with tab1:
               "Cód.", format="%d", width="small"
           ),
           "Venta_Prom_30D": st.column_config.NumberColumn(
-              "Venta Prom. (u/día)", format="%.2f"
+              "Venta Hist. (u/día)", format="%.2f"
+          ),
+          "Demanda_Diaria": st.column_config.NumberColumn(
+              "Demanda Ajustada", format="%.2f"
+          ),
+          "Factor_Ajuste": st.column_config.NumberColumn(
+              "📢 Ajuste", format="%.0%%"
           ),
           "Stock_Gondola": st.column_config.NumberColumn("Stock Góndola"),
           "ROP": st.column_config.NumberColumn("Punto Reorden (ROP)"),
