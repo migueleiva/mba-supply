@@ -10,6 +10,154 @@ st.set_page_config(
     layout="wide",
 )
 
+# -------------------------------------------------------------
+# LOGO URL
+# -------------------------------------------------------------
+LOGO_UP_PBS = "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Universidad_del_Pacifico_logo.svg/1200px-Universidad_del_Pacifico_logo.svg.png"
+
+# -------------------------------------------------------------
+# USUARIOS DEMO (simulación educativa)
+# -------------------------------------------------------------
+USUARIOS_DEMO = {
+    "admin": {"password": "admin123", "nombre": "Administrador", "rol": "Admin"},
+    "estudiante": {"password": "pbs2024", "nombre": "Estudiante MBA", "rol": "Estudiante"},
+    "profesor": {"password": "prof2024", "nombre": "Docente PBS", "rol": "Profesor"},
+}
+
+# -------------------------------------------------------------
+# FUNCIONES DE AUTENTICACIÓN
+# -------------------------------------------------------------
+def init_session_state():
+    """Inicializa las variables de sesión"""
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+    if "user_info" not in st.session_state:
+        st.session_state.user_info = None
+
+def login(username, password):
+    """Valida credenciales y retorna True si son correctas"""
+    if username in USUARIOS_DEMO:
+        if USUARIOS_DEMO[username]["password"] == password:
+            st.session_state.logged_in = True
+            st.session_state.user_info = {
+                "username": username,
+                "nombre": USUARIOS_DEMO[username]["nombre"],
+                "rol": USUARIOS_DEMO[username]["rol"],
+            }
+            return True
+    return False
+
+def logout():
+    """Cierra la sesión del usuario"""
+    st.session_state.logged_in = False
+    st.session_state.user_info = None
+
+def show_login_page():
+    """Muestra la página de login"""
+    st.markdown(
+        """
+        <style>
+        .login-container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.image(LOGO_UP_PBS, width=180)
+        st.markdown(
+            """
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h2 style="color: #003366; margin-bottom: 5px;">Pacífico Business School</h2>
+                <p style="color: #666; font-size: 14px;">Operaciones, Procesos y Supply Chain Analytics</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        
+        st.markdown("---")
+        st.markdown("#### 🔐 Iniciar Sesión")
+        
+        with st.form("login_form"):
+            username = st.text_input("👤 Usuario", placeholder="Ingresa tu usuario")
+            password = st.text_input("🔑 Contraseña", type="password", placeholder="Ingresa tu contraseña")
+            submit = st.form_submit_button("Ingresar", use_container_width=True)
+            
+            if submit:
+                if login(username, password):
+                    st.rerun()
+                else:
+                    st.error("❌ Usuario o contraseña incorrectos")
+        
+        st.markdown("---")
+        st.markdown(
+            """
+            <div style="text-align: center; font-size: 12px; color: #888;">
+                <p><strong>Usuarios de prueba:</strong></p>
+                <p>👤 admin / admin123</p>
+                <p>👤 estudiante / pbs2024</p>
+                <p>👤 profesor / prof2024</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+# -------------------------------------------------------------
+# INICIALIZAR SESIÓN Y VERIFICAR LOGIN
+# -------------------------------------------------------------
+init_session_state()
+
+if not st.session_state.logged_in:
+    show_login_page()
+    st.stop()
+
+# -------------------------------------------------------------
+# HEADER CON LOGO Y INFORMACIÓN DEL CURSO (POST-LOGIN)
+# -------------------------------------------------------------
+col_logo, col_title, col_user = st.columns([1, 3, 1])
+
+with col_logo:
+    st.image(LOGO_UP_PBS, width=120)
+
+with col_title:
+    st.markdown(
+        """
+        <div style="padding-left: 10px;">
+            <h4 style="margin-bottom: 0; color: #003366;">Universidad del Pacífico</h4>
+            <p style="margin-top: 0; margin-bottom: 5px; font-size: 14px; color: #666;">
+                <strong>Pacífico Business School</strong>
+            </p>
+            <p style="margin-top: 0; font-size: 13px; color: #888;">
+                Curso: Operaciones, Procesos y Supply Chain Analytics
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+with col_user:
+    user = st.session_state.user_info
+    st.markdown(
+        f"""
+        <div style="text-align: right; padding: 10px;">
+            <p style="margin: 0; font-size: 14px;">👤 <strong>{user['nombre']}</strong></p>
+            <p style="margin: 0; font-size: 12px; color: #888;">{user['rol']}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if st.button("🚪 Cerrar Sesión", use_container_width=True):
+        logout()
+        st.rerun()
+
+st.markdown("---")
+
 st.title("🧀 OptiLácteos: Motor de Reposición Dinámica Anti-Merma")
 st.markdown(
     "**Iniciativa 1: Abastecimiento Pull basado en demanda real y ventana"
