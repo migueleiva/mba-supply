@@ -11,9 +11,9 @@ st.set_page_config(
 )
 
 # -------------------------------------------------------------
-# LOGO URL
+# LOGO LOCAL
 # -------------------------------------------------------------
-LOGO_UP_PBS = "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Universidad_del_Pacifico_logo.svg/1200px-Universidad_del_Pacifico_logo.svg.png"
+LOGO_UP_PBS = "pacifico.png"
 
 # -------------------------------------------------------------
 # USUARIOS DEMO (simulación educativa)
