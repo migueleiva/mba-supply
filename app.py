@@ -11,9 +11,9 @@ st.set_page_config(
 )
 
 # -------------------------------------------------------------
-# LOGO LOCAL
+# LOGO URL
 # -------------------------------------------------------------
-LOGO_UP_PBS = "pacifico.png"
+LOGO_UP_PBS = "https://pbs.edu.pe/formularios/educacion-ejecutiva/programas-inhouse/img/pacifico.png"
 
 # -------------------------------------------------------------
 # USUARIOS DEMO (simulación educativa)
