@@ -20,8 +20,8 @@ LOGO_UP_PBS = "https://pbs.edu.pe/formularios/educacion-ejecutiva/programas-inho
 # -------------------------------------------------------------
 USUARIOS_DEMO = {
     "admin": {"password": "admin123", "nombre": "Administrador", "rol": "Admin"},
-    "estudiante": {"password": "pbs2024", "nombre": "Estudiante MBA", "rol": "Estudiante"},
-    "profesor": {"password": "prof2024", "nombre": "Docente PBS", "rol": "Profesor"},
+    "estudiante": {"password": "pbs2026", "nombre": "Miguel Leiva", "rol": "Estudiante"},
+    "profesor": {"password": "pbs2026", "nombre": "Docente PBS", "rol": "Profesor"},
 }
 
 # -------------------------------------------------------------
