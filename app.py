@@ -439,7 +439,6 @@ kpi3.metric("✅ Tiendas con Despacho", f"{aprobadas}")
 kpi4.metric(
     "📦 Total Cajas a Enviar",
     f"{cajas_totales} cajas",
-    f"{cajas_totales - cajas_push_antiguo} vs Modelo Push",
 )
 
 st.markdown("---")
