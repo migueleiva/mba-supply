@@ -468,11 +468,10 @@ st.markdown("---")
 # -------------------------------------------------------------
 # 4. PESTAÑAS VISUALES EN PANTALLA
 # -------------------------------------------------------------
-tab1, tab2, tab3, tab4 = st.tabs([
-    "📋 Planilla de Despacho en Vivo",
-    "🚚 Resumen Consolidado por Ruta",
+tab1, tab2, tab3 = st.tabs([
+    "📋 Planilla de Despacho Optimizado (Pull)",
     "🔍 Auditoría y Diagnóstico por Tienda",
-    "⚖️ Comparativo Push vs Pull",
+    "📦 Despacho Tradicional (Push)",
 ])
 
 # --- PESTAÑA 1: TABLA EN VIVO ---
@@ -562,32 +561,8 @@ with tab1:
       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   )
 
-# --- PESTAÑA 2: RESUMEN POR RUTA ---
+# --- PESTAÑA 2: DIAGNÓSTICO DETALLADO POR TIENDA ---
 with tab2:
-  st.subheader("Carga Consolidada por Camión y Ruta")
-  resumen_ruta = (
-      metadata.groupby("Ruta")
-      .agg(
-          Tiendas_En_Ruta=("Codigo Tienda", "count"),
-          Tiendas_Con_Despacho=("Cajas_Despacho", lambda x: (x > 0).sum()),
-          Tiendas_Bloqueadas=("Cajas_Despacho", lambda x: (x == 0).sum()),
-          Total_Cajas_Camion=("Cajas_Despacho", "sum"),
-          Total_Unidades_Camion=("Unidades_Despacho", "sum"),
-      )
-      .reset_index()
-  )
-
-  st.dataframe(resumen_ruta, hide_index=True, use_container_width=True)
-
-  # Gráfico interactivo de cajas por ruta
-  st.bar_chart(
-      resumen_ruta.set_index("Ruta")[
-          ["Total_Cajas_Camion", "Tiendas_Bloqueadas"]
-      ]
-  )
-
-# --- PESTAÑA 3: DIAGNÓSTICO DETALLADO POR TIENDA ---
-with tab3:
   st.subheader("Ficha de Auditoría Individual")
   tienda_elegida = st.selectbox(
       "Selecciona una tienda para ver su análisis:",
@@ -620,116 +595,59 @@ with tab3:
   )
   st.write(f"- **Diagnóstico final:** {row_t['Detalle_Motor']}")
 
-# --- PESTAÑA 4: COMPARATIVO PUSH VS PULL ---
-with tab4:
-  st.subheader("⚖️ Comparación: Modelo Push (Tradicional) vs Pull (Optimizado)")
+# --- PESTAÑA 3: DESPACHO TRADICIONAL (PUSH) ---
+with tab3:
+  st.subheader("📦 Planilla de Despacho Tradicional (Modelo Push)")
   
-  st.markdown("""
-  **Modelo Push (Tradicional):** Envía la misma cantidad a todas las tiendas sin considerar demanda real.
-  
-  **Modelo Pull (Optimizado):** Calcula el despacho basado en demanda, stock actual y vida útil del producto.
+  st.warning("""
+  **⚠️ Modelo Push (Sin Optimización):** Se envía 1 caja estándar a TODAS las tiendas 
+  sin importar su demanda real, stock actual o riesgo de merma.
   """)
   
-  st.markdown("---")
-  
-  # KPIs de comparación
-  col_push, col_pull, col_ahorro = st.columns(3)
-  
-  with col_push:
-      st.markdown("### 📦 Modelo PUSH")
-      st.metric("Cajas Totales", f"{total_tiendas} cajas")
-      st.metric("Unidades Totales", f"{unidades_push_total:,} u")
-      st.metric(
-          "⚠️ Tiendas con Riesgo de Merma", 
-          f"{tiendas_con_riesgo_merma}",
-          f"{tiendas_con_riesgo_merma/total_tiendas*100:.1f}% de la red",
-          delta_color="inverse"
-      )
-  
-  with col_pull:
-      st.markdown("### 🎯 Modelo PULL")
-      st.metric("Cajas Totales", f"{cajas_totales} cajas")
-      st.metric("Unidades Totales", f"{unidades_pull_total:,} u")
-      st.metric(
-          "✅ Tiendas Bloqueadas (Anti-Merma)", 
-          f"{bloqueadas}",
-          f"{bloqueadas/total_tiendas*100:.1f}% protegidas"
-      )
-  
-  with col_ahorro:
-      st.markdown("### 💰 AHORRO")
-      ahorro_cajas = total_tiendas - cajas_totales
-      st.metric(
-          "Cajas Evitadas", 
-          f"{ahorro_cajas} cajas",
-          f"{ahorro_cajas/total_tiendas*100:.1f}% menos"
-      )
-      st.metric(
-          "Unidades No Enviadas", 
-          f"{ahorro_unidades:,} u",
-          f"{ahorro_unidades/unidades_push_total*100:.1f}% menos"
-      )
-      # Estimación de ahorro en merma (asumiendo que el exceso se pierde)
-      merma_evitada = metadata["Exceso_Push"].sum()
-      st.metric(
-          "🗑️ Merma Potencial Evitada",
-          f"{merma_evitada:,} u",
-          "Producto que se habría vencido"
-      )
-  
-  st.markdown("---")
-  
-  # Tabla comparativa por tienda
-  st.subheader("📊 Detalle por Tienda: Push vs Pull")
-  
-  df_comparativo = metadata[[
+  # Crear tabla del modelo Push
+  df_push = metadata[[
       "Codigo Tienda", 
       "Tienda", 
       "Ruta",
-      "Demanda_Diaria",
+      "Venta_Prom_30D",
       "Stock_Gondola",
-      "Capacidad_Max_20D",
       "Cajas_Push",
       "Unidades_Push",
-      "Cajas_Despacho",
-      "Unidades_Despacho",
-      "Exceso_Push",
-      "Estado"
   ]].copy()
   
-  df_comparativo["Diferencia_Unidades"] = df_comparativo["Unidades_Push"] - df_comparativo["Unidades_Despacho"]
+  df_push["Estado"] = "📦 Enviado"
+  df_push["Detalle"] = "Despacho estándar sin evaluación"
   
   st.dataframe(
-      df_comparativo,
+      df_push,
       column_config={
-          "Codigo Tienda": st.column_config.NumberColumn("Cód.", format="%d"),
+          "Codigo Tienda": st.column_config.NumberColumn("Cód.", format="%d", width="small"),
           "Tienda": "Tienda",
           "Ruta": "Ruta",
-          "Demanda_Diaria": st.column_config.NumberColumn("Demanda/día", format="%.1f"),
-          "Stock_Gondola": st.column_config.NumberColumn("Stock Actual"),
-          "Capacidad_Max_20D": st.column_config.NumberColumn("Capacidad Máx."),
-          "Cajas_Push": st.column_config.NumberColumn("📦 Cajas Push"),
-          "Unidades_Push": st.column_config.NumberColumn("Unid. Push"),
-          "Cajas_Despacho": st.column_config.NumberColumn("🎯 Cajas Pull"),
-          "Unidades_Despacho": st.column_config.NumberColumn("Unid. Pull"),
-          "Exceso_Push": st.column_config.NumberColumn("⚠️ Exceso Push", help="Unidades que excederían la capacidad máxima"),
-          "Diferencia_Unidades": st.column_config.NumberColumn("💰 Ahorro", help="Unidades no enviadas vs Push"),
-          "Estado": "Decisión Pull"
+          "Venta_Prom_30D": st.column_config.NumberColumn("Venta Prom. (u/día)", format="%.2f"),
+          "Stock_Gondola": st.column_config.NumberColumn("Stock Góndola"),
+          "Cajas_Push": st.column_config.NumberColumn("📦 Cajas", format="%d"),
+          "Unidades_Push": st.column_config.NumberColumn("Unidades"),
+          "Estado": "Decisión",
+          "Detalle": "Justificación"
       },
       hide_index=True,
       use_container_width=True,
   )
   
-  # Gráfico de barras comparativo
-  st.subheader("📈 Visualización Comparativa")
+  # Resumen del modelo Push
+  st.markdown("---")
+  st.subheader("📊 Resumen Modelo Push")
   
-  comparativo_chart = pd.DataFrame({
-      "Métrica": ["Cajas Totales", "Unidades Totales", "Tiendas con Riesgo"],
-      "Push (Tradicional)": [total_tiendas, unidades_push_total, tiendas_con_riesgo_merma],
-      "Pull (Optimizado)": [cajas_totales, unidades_pull_total, 0]
-  })
+  col1, col2, col3 = st.columns(3)
+  col1.metric("🏪 Tiendas Despachadas", f"{total_tiendas} (100%)")
+  col2.metric("📦 Total Cajas", f"{total_tiendas} cajas")
+  col3.metric("📊 Total Unidades", f"{unidades_push_total:,} u")
   
-  st.bar_chart(
-      comparativo_chart.set_index("Métrica"),
-      color=["#ff6b6b", "#4ecdc4"]
-  )
+  st.markdown("---")
+  st.error(f"""
+  **🚨 Problemas del Modelo Push:**
+  - Se envía producto a **{tiendas_con_riesgo_merma} tiendas** que ya tienen stock suficiente (riesgo de merma)
+  - No considera la demanda real de cada tienda
+  - No evalúa la capacidad de góndola ni vida útil del producto
+  """)
