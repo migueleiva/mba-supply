@@ -419,6 +419,22 @@ metadata["Detalle_Motor"] = [r[2] for r in res]
 metadata["Estado"] = [r[3] for r in res]
 
 # -------------------------------------------------------------
+# CÁLCULO DEL MODELO PUSH (TRADICIONAL) PARA COMPARACIÓN
+# -------------------------------------------------------------
+# Modelo Push: envía 1 caja estándar a todas las tiendas sin importar demanda
+metadata["Cajas_Push"] = 1
+metadata["Unidades_Push"] = pack_size
+metadata["Estado_Push"] = "📦 Enviado (Push)"
+
+# Calcular métricas de merma potencial para Push
+# Si el stock + envío push > capacidad máxima = riesgo de merma
+metadata["Exceso_Push"] = np.maximum(
+    0, 
+    (metadata["Stock_Gondola"] + metadata["Unidades_Push"]) - metadata["Capacidad_Max_20D"]
+).astype(int)
+metadata["Riesgo_Merma_Push"] = metadata["Exceso_Push"] > 0
+
+# -------------------------------------------------------------
 # 3. KPI CARDS (MÉTRICAS EN PANTALLA)
 # -------------------------------------------------------------
 total_tiendas = len(metadata)
@@ -426,6 +442,12 @@ bloqueadas = (metadata["Cajas_Despacho"] == 0).sum()
 aprobadas = (metadata["Cajas_Despacho"] > 0).sum()
 cajas_totales = metadata["Cajas_Despacho"].sum()
 cajas_push_antiguo = total_tiendas * 1  # 1 caja de 10 a todas
+
+# Métricas de comparación
+unidades_push_total = total_tiendas * pack_size
+unidades_pull_total = metadata["Unidades_Despacho"].sum()
+ahorro_unidades = unidades_push_total - unidades_pull_total
+tiendas_con_riesgo_merma = metadata["Riesgo_Merma_Push"].sum()
 
 kpi1, kpi2, kpi3, kpi4 = st.columns(4)
 kpi1.metric("🏪 Tiendas Totales", f"{total_tiendas}")
@@ -446,10 +468,11 @@ st.markdown("---")
 # -------------------------------------------------------------
 # 4. PESTAÑAS VISUALES EN PANTALLA
 # -------------------------------------------------------------
-tab1, tab2, tab3 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "📋 Planilla de Despacho en Vivo",
     "🚚 Resumen Consolidado por Ruta",
     "🔍 Auditoría y Diagnóstico por Tienda",
+    "⚖️ Comparativo Push vs Pull",
 ])
 
 # --- PESTAÑA 1: TABLA EN VIVO ---
@@ -596,3 +619,117 @@ with tab3:
       f" `{row_t['Capacidad_Max_20D']} unidades`"
   )
   st.write(f"- **Diagnóstico final:** {row_t['Detalle_Motor']}")
+
+# --- PESTAÑA 4: COMPARATIVO PUSH VS PULL ---
+with tab4:
+  st.subheader("⚖️ Comparación: Modelo Push (Tradicional) vs Pull (Optimizado)")
+  
+  st.markdown("""
+  **Modelo Push (Tradicional):** Envía la misma cantidad a todas las tiendas sin considerar demanda real.
+  
+  **Modelo Pull (Optimizado):** Calcula el despacho basado en demanda, stock actual y vida útil del producto.
+  """)
+  
+  st.markdown("---")
+  
+  # KPIs de comparación
+  col_push, col_pull, col_ahorro = st.columns(3)
+  
+  with col_push:
+      st.markdown("### 📦 Modelo PUSH")
+      st.metric("Cajas Totales", f"{total_tiendas} cajas")
+      st.metric("Unidades Totales", f"{unidades_push_total:,} u")
+      st.metric(
+          "⚠️ Tiendas con Riesgo de Merma", 
+          f"{tiendas_con_riesgo_merma}",
+          f"{tiendas_con_riesgo_merma/total_tiendas*100:.1f}% de la red",
+          delta_color="inverse"
+      )
+  
+  with col_pull:
+      st.markdown("### 🎯 Modelo PULL")
+      st.metric("Cajas Totales", f"{cajas_totales} cajas")
+      st.metric("Unidades Totales", f"{unidades_pull_total:,} u")
+      st.metric(
+          "✅ Tiendas Bloqueadas (Anti-Merma)", 
+          f"{bloqueadas}",
+          f"{bloqueadas/total_tiendas*100:.1f}% protegidas"
+      )
+  
+  with col_ahorro:
+      st.markdown("### 💰 AHORRO")
+      ahorro_cajas = total_tiendas - cajas_totales
+      st.metric(
+          "Cajas Evitadas", 
+          f"{ahorro_cajas} cajas",
+          f"{ahorro_cajas/total_tiendas*100:.1f}% menos"
+      )
+      st.metric(
+          "Unidades No Enviadas", 
+          f"{ahorro_unidades:,} u",
+          f"{ahorro_unidades/unidades_push_total*100:.1f}% menos"
+      )
+      # Estimación de ahorro en merma (asumiendo que el exceso se pierde)
+      merma_evitada = metadata["Exceso_Push"].sum()
+      st.metric(
+          "🗑️ Merma Potencial Evitada",
+          f"{merma_evitada:,} u",
+          "Producto que se habría vencido"
+      )
+  
+  st.markdown("---")
+  
+  # Tabla comparativa por tienda
+  st.subheader("📊 Detalle por Tienda: Push vs Pull")
+  
+  df_comparativo = metadata[[
+      "Codigo Tienda", 
+      "Tienda", 
+      "Ruta",
+      "Demanda_Diaria",
+      "Stock_Gondola",
+      "Capacidad_Max_20D",
+      "Cajas_Push",
+      "Unidades_Push",
+      "Cajas_Despacho",
+      "Unidades_Despacho",
+      "Exceso_Push",
+      "Estado"
+  ]].copy()
+  
+  df_comparativo["Diferencia_Unidades"] = df_comparativo["Unidades_Push"] - df_comparativo["Unidades_Despacho"]
+  
+  st.dataframe(
+      df_comparativo,
+      column_config={
+          "Codigo Tienda": st.column_config.NumberColumn("Cód.", format="%d"),
+          "Tienda": "Tienda",
+          "Ruta": "Ruta",
+          "Demanda_Diaria": st.column_config.NumberColumn("Demanda/día", format="%.1f"),
+          "Stock_Gondola": st.column_config.NumberColumn("Stock Actual"),
+          "Capacidad_Max_20D": st.column_config.NumberColumn("Capacidad Máx."),
+          "Cajas_Push": st.column_config.NumberColumn("📦 Cajas Push"),
+          "Unidades_Push": st.column_config.NumberColumn("Unid. Push"),
+          "Cajas_Despacho": st.column_config.NumberColumn("🎯 Cajas Pull"),
+          "Unidades_Despacho": st.column_config.NumberColumn("Unid. Pull"),
+          "Exceso_Push": st.column_config.NumberColumn("⚠️ Exceso Push", help="Unidades que excederían la capacidad máxima"),
+          "Diferencia_Unidades": st.column_config.NumberColumn("💰 Ahorro", help="Unidades no enviadas vs Push"),
+          "Estado": "Decisión Pull"
+      },
+      hide_index=True,
+      use_container_width=True,
+  )
+  
+  # Gráfico de barras comparativo
+  st.subheader("📈 Visualización Comparativa")
+  
+  comparativo_chart = pd.DataFrame({
+      "Métrica": ["Cajas Totales", "Unidades Totales", "Tiendas con Riesgo"],
+      "Push (Tradicional)": [total_tiendas, unidades_push_total, tiendas_con_riesgo_merma],
+      "Pull (Optimizado)": [cajas_totales, unidades_pull_total, 0]
+  })
+  
+  st.bar_chart(
+      comparativo_chart.set_index("Métrica"),
+      color=["#ff6b6b", "#4ecdc4"]
+  )
