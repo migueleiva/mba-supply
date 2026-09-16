@@ -168,10 +168,18 @@ st.markdown(
 # 1. BARRA LATERAL: PARÁMETROS LOGÍSTICOS
 # -------------------------------------------------------------
 st.sidebar.header("⚙️ Configuración Operativa")
-uploaded_file = st.sidebar.file_uploader(
-    "Subir archivo Excel (Datos_trabajo_final.xlsx)", type=["xlsx"]
-)
 
+# Botón para ejecutar pronóstico
+ejecutar_pronostico = st.sidebar.button("🚀 Ejecutar Pronóstico", use_container_width=True, type="primary")
+
+# Inicializar estado del pronóstico
+if "pronostico_ejecutado" not in st.session_state:
+    st.session_state.pronostico_ejecutado = False
+
+if ejecutar_pronostico:
+    st.session_state.pronostico_ejecutado = True
+
+st.sidebar.markdown("---")
 st.sidebar.subheader("Reglas de Negocio")
 pack_size = st.sidebar.number_input(
     "Tamaño de Caja Estándar (unidades)", value=10, step=1
@@ -255,20 +263,22 @@ if tipo_evento != "Sin ajuste":
         f"La demanda pronosticada se multiplicará por **{factor_ajuste}**"
     )
 
-if uploaded_file is None:
+if not st.session_state.pronostico_ejecutado:
   st.info(
-      "👆 Sube el archivo original **Datos_trabajo_final.xlsx** en la barra"
-      " lateral para procesar los datos en pantalla."
+      "👈 Configura los parámetros en la barra lateral y presiona **🚀 Ejecutar Pronóstico** "
+      "para calcular el plan de despacho."
   )
   st.stop()
 
 
 # -------------------------------------------------------------
-# 2. PROCESAMIENTO DE DATOS
+# 2. PROCESAMIENTO DE DATOS (ARCHIVO LOCAL)
 # -------------------------------------------------------------
+ARCHIVO_DATOS = "Datos_trabajo_final_simulado.xlsx"
+
 @st.cache_data
-def procesar_datos(file):
-  raw_sales = pd.read_excel(file, sheet_name="Venta x tienda")
+def procesar_datos():
+  raw_sales = pd.read_excel(ARCHIVO_DATOS, sheet_name="Venta x tienda")
   raw_sales.columns = raw_sales.iloc[2]
   df_stores = (
       raw_sales.iloc[3:243]
@@ -290,7 +300,7 @@ def procesar_datos(file):
 
   # Mapear rutas
   try:
-    raw_despacho = pd.read_excel(file, sheet_name="Despacho por tienda")
+    raw_despacho = pd.read_excel(ARCHIVO_DATOS, sheet_name="Despacho por tienda")
     rutas_map = (
         raw_despacho.groupby("CODIGO TIENDA")["RUTA"]
         .agg(lambda x: x.mode()[0] if not x.empty else "REG:01")
@@ -311,7 +321,7 @@ def procesar_datos(file):
   return metadata, sales_matrix, date_cols
 
 
-metadata, sales_matrix, date_cols = procesar_datos(uploaded_file)
+metadata, sales_matrix, date_cols = procesar_datos()
 
 # Cálculos estadísticos
 recent_dates = date_cols[-30:]
