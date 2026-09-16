@@ -13,7 +13,7 @@ st.set_page_config(
 # -------------------------------------------------------------
 # LOGO URL
 # -------------------------------------------------------------
-LOGO_UP_PBS = "https://pbs.edu.pe/formularios/educacion-ejecutiva/programas-inhouse/img/pacifico.png"
+LOGO_UP_PBS = "https://amba.ams3.cdn.digitaloceanspaces.com/content/AA3B37B069CD78B5A49E08286B2E0AB3/6251-2048.webp"
 
 # -------------------------------------------------------------
 # USUARIOS DEMO (simulación educativa)
